@@ -2,6 +2,8 @@
 import postgres from "postgres";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { signIn } from "@/auth";
+import { AuthError } from "next-auth";
 
 import { z } from "zod";
 
@@ -64,22 +66,23 @@ VALUES (${validatedFields.data.customerId}, ${amountInCents}, ${status}, ${date}
 
 const UpdateInvoice = FormSchema.omit({ id: true, date: true });
 
-export async function updateInvoice(id:string, prevState: State, formData: FormData) {
-
+export async function updateInvoice(
+  id: string,
+  prevState: State,
+  formData: FormData,
+) {
   const validateFields = UpdateInvoice.safeParse({
     customerId: formData.get("customerId"),
     amount: formData.get("amount"),
     status: formData.get("status"),
   });
 
-
-  if(!validateFields.success){
+  if (!validateFields.success) {
     return {
       errors: validateFields.error.flatten().fieldErrors,
       message: "Missing Fields. Failed to Create Invocie",
-    }
+    };
   }
-
 
   const { customerId, amount, status } = validateFields.data;
 
@@ -114,3 +117,21 @@ export type State = {
   };
   message?: string | null;
 };
+
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    await signIn("credentials", formData);
+  } catch (error) {
+    console.log(error);
+    if (error instanceof AuthError)
+      switch (error.name) {
+        case "CredentialSignin":
+          return "Invalid credentials";
+          defualt: return "Something went wrong";
+      }
+    throw error;
+  }
+}
